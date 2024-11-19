@@ -20,6 +20,7 @@ public protocol TLPhotosPickerViewControllerDelegate: AnyObject {
     func canSelectAsset(phAsset: PHAsset) -> Bool
     func didExceedMaximumNumberOfSelection(picker: TLPhotosPickerViewController)
     func handleNoAlbumPermissions(picker: TLPhotosPickerViewController)
+    func handleLimitAlbumPermissions(picker: TLPhotosPickerViewController)
     func handleNoCameraPermissions(picker: TLPhotosPickerViewController)
 }
 
@@ -33,6 +34,7 @@ extension TLPhotosPickerViewControllerDelegate {
     public func canSelectAsset(phAsset: PHAsset) -> Bool { return true }
     public func didExceedMaximumNumberOfSelection(picker: TLPhotosPickerViewController) { }
     public func handleNoAlbumPermissions(picker: TLPhotosPickerViewController) { }
+    public func handleLimitAlbumPermissions(picker: TLPhotosPickerViewController) { }
     public func handleNoCameraPermissions(picker: TLPhotosPickerViewController) { }
 }
 
@@ -42,6 +44,7 @@ public protocol TLPhotosPickerLogDelegate: AnyObject {
     func deselectedPhoto(picker: TLPhotosPickerViewController, at: Int)
     func selectedPhoto(picker: TLPhotosPickerViewController, at: Int)
     func selectedAlbum(picker: TLPhotosPickerViewController, title: String, at: Int)
+    func changedPhotoLibrary(picker: TLPhotosPickerViewController)
 }
 
 extension TLPhotosPickerLogDelegate {
@@ -193,7 +196,10 @@ open class TLPhotosPickerViewController: UIViewController {
     
     // channel custom
     open var didTapImageAreaOnCell: ((PHFetchResult<PHAsset>, Int) -> Void)? = nil
-  
+    open var assetCountOfFocusedCollection: Int {
+        return self.focusedCollection?.fetchResult?.count ?? 0
+    }
+    
     @objc open var canSelectAsset: ((PHAsset) -> Bool)? = nil
     @objc open var didExceedMaximumNumberOfSelection: ((TLPhotosPickerViewController) -> Void)? = nil
     @objc open var handleNoAlbumPermissions: ((TLPhotosPickerViewController) -> Void)? = nil
@@ -289,6 +295,7 @@ open class TLPhotosPickerViewController: UIViewController {
             requestAuthorization()
         case .limited:
             loadPhotos(limitMode: true)
+            handleLimitedAlbumsAuthorization()
         case .authorized:
             loadPhotos(limitMode: false)
         case .restricted, .denied:
@@ -695,6 +702,12 @@ extension TLPhotosPickerViewController: UIImagePickerControllerDelegate, UINavig
         
         self.present(picker, animated: true, completion: nil)
     }
+  
+    private func handleLimitedAlbumsAuthorization() {
+        DispatchQueue.main.async {
+          self.delegate?.handleLimitAlbumPermissions(picker: self)
+        }
+    }
 
     private func handleDeniedAlbumsAuthorization() {
         DispatchQueue.main.async {
@@ -959,6 +972,8 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
                 self.albumPopView.tableView.reloadRows(at: [IndexPath(row: self.getfocusedIndex(), section: 0)], with: .none)
             }
         }
+      
+      self.logDelegate?.changedPhotoLibrary(picker: self)
     }
 }
 
