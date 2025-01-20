@@ -15,11 +15,8 @@ open class TLCollectionTableViewCell: UITableViewCell {
     
     override open func awakeFromNib() {
         super.awakeFromNib()   
-        if #available(iOS 11.0, *) {
-            self.thumbImageView.accessibilityIgnoresInvertColors = true
-        }
-        if #available(iOS 13.0, *) {
-            self.contentView.backgroundColor = .systemBackground
-        }
+        
+        self.thumbImageView.accessibilityIgnoresInvertColors = true
+        self.contentView.backgroundColor = self.bgColor
     }
 }

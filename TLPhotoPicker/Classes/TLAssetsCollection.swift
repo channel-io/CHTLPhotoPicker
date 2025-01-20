@@ -189,12 +189,7 @@ public struct TLPHAsset {
         }
         guard let resource = (PHAssetResource.assetResources(for: phAsset).filter{ $0.type == type }).first else { return nil }
         let fileName = resource.originalFilename
-        var writeURL: URL? = nil
-        if #available(iOS 10.0, *) {
-            writeURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(fileName)")
-        } else {
-            writeURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("\(fileName)")
-        }
+        var writeURL: URL? = FileManager.default.temporaryDirectory.appendingPathComponent("\(fileName)")
         guard var localURL = writeURL,var mimetype = MIMEType(writeURL) else { return nil }
         if type == .pairedVideo {
             return tempCopyLivePhotos(phAsset: phAsset,
@@ -271,13 +266,8 @@ public struct TLPHAsset {
         guard let resource = (PHAssetResource.assetResources(for: phAsset).filter{ $0.type == .video }).first else {
             return nil
         }
-        var writeURL: URL?
         let fileName = resource.originalFilename
-        if #available(iOS 10.0, *) {
-            writeURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(fileName)")
-        } else {
-            writeURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("\(fileName)")
-        }
+        let writeURL: URL? = FileManager.default.temporaryDirectory.appendingPathComponent("\(fileName)")
         return writeURL
     }
     

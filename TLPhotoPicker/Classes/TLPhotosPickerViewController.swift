@@ -260,21 +260,19 @@ open class TLPhotosPickerViewController: UIViewController {
     }
     
     private func updateUserInterfaceStyle() {
-        if #available(iOS 13.0, *) {
-            let userInterfaceStyle = self.traitCollection.userInterfaceStyle
-            let image = TLBundle.podBundleImage(named: "pop_arrow")
-            let subImage = TLBundle.podBundleImage(named: "arrow")
-            if userInterfaceStyle.rawValue == 2 {
-                self.popArrowImageView.image = image?.colorMask(color: .systemBackground)
-                self.subTitleArrowImageView.image = subImage?.colorMask(color: .white)
-                self.view.backgroundColor = .black
-                self.collectionView.backgroundColor = .black
-            } else {
-                self.popArrowImageView.image = image?.colorMask(color: .white)
-                self.subTitleArrowImageView.image = subImage
-                self.view.backgroundColor = .white
-                self.collectionView.backgroundColor = .white
-            }
+        let userInterfaceStyle = self.traitCollection.userInterfaceStyle
+        let image = TLBundle.podBundleImage(named: "pop_arrow")
+        let subImage = TLBundle.podBundleImage(named: "arrow")
+        if userInterfaceStyle.rawValue == 2 {
+          self.popArrowImageView.image = image?.colorMask(color: .systemBackground)
+          self.subTitleArrowImageView.image = subImage?.colorMask(color: .white)
+          self.view.backgroundColor = .black
+          self.collectionView.backgroundColor = .black
+        } else {
+          self.popArrowImageView.image = image?.colorMask(color: .white)
+          self.subTitleArrowImageView.image = subImage
+          self.view.backgroundColor = .white
+          self.collectionView.backgroundColor = .white
         }
     }
     
@@ -306,25 +304,14 @@ open class TLPhotosPickerViewController: UIViewController {
     }
     
     private func requestAuthorization() {
-        if #available(iOS 14.0, *) {
-            PHPhotoLibrary.requestAuthorization(for:  .readWrite) { [weak self] status in
-                self?.processAuthorization(status: status)
-            }
-        } else {
-            PHPhotoLibrary.requestAuthorization { [weak self] status in
-                self?.processAuthorization(status: status)
-            }
+        PHPhotoLibrary.requestAuthorization(for:  .readWrite) { [weak self] status in
+          self?.processAuthorization(status: status)
         }
     }
     
     private func checkAuthorization() {
-        if #available(iOS 14.0, *) {
-            let status = PHPhotoLibrary.authorizationStatus(for:  .readWrite)
-            processAuthorization(status: status)
-        } else {
-            let status = PHPhotoLibrary.authorizationStatus()
-            processAuthorization(status: status)
-        }
+        let status = PHPhotoLibrary.authorizationStatus(for:  .readWrite)
+        processAuthorization(status: status)
     }
     
     override open func viewDidLoad() {
@@ -337,10 +324,6 @@ open class TLPhotosPickerViewController: UIViewController {
         super.viewDidLayoutSubviews()
         if self.thumbnailSize == CGSize.zero {
             initItemSize()
-        }
-        if #available(iOS 11.0, *) {
-        } else if self.navigationBarTopConstraint.constant == 0 {
-            self.navigationBarTopConstraint.constant = 20
         }
     }
     
@@ -456,25 +439,18 @@ extension TLPhotosPickerViewController {
         self.emptyMessageLabel.text = self.configure.emptyMessage
         self.albumPopView.tableView.delegate = self
         self.albumPopView.tableView.dataSource = self
+        self.albumPopView.bgColor = self.configure.popupBgColor
         self.popArrowImageView.image = TLBundle.podBundleImage(named: "pop_arrow")
         self.subTitleArrowImageView.image = TLBundle.podBundleImage(named: "arrow")
-        if #available(iOS 10.0, *), self.usedPrefetch {
-            self.collectionView.isPrefetchingEnabled = true
-            self.collectionView.prefetchDataSource = self
-        } else {
-            self.usedPrefetch = false
-        }
-        if #available(iOS 9.0, *), self.allowedLivePhotos {
-        } else {
-            self.allowedLivePhotos = false
-        }
+        self.collectionView.isPrefetchingEnabled = true
+        self.collectionView.prefetchDataSource = self
         self.customDataSouces?.registerSupplementView(collectionView: self.collectionView)
         self.navigationBar.delegate = self
         updateUserInterfaceStyle()
     }
     
     private func updatePresentLimitedLibraryButton() {
-        if #available(iOS 14.0, *), self.photoLibrary.limitMode && self.configure.preventAutomaticLimitedAccessAlert {
+        if self.photoLibrary.limitMode && self.configure.preventAutomaticLimitedAccessAlert {
             self.customNavItem.rightBarButtonItems = [self.doneButton, self.photosButton]
         } else {
             self.customNavItem.rightBarButtonItems = [self.doneButton]
@@ -573,9 +549,7 @@ extension TLPhotosPickerViewController {
     }
     
     @IBAction open func limitButtonTap() {
-        if #available(iOS 14.0, *) {
-            PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: self)
-        }
+        PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: self)
     }
     
     private func dismiss(done: Bool) {
@@ -676,10 +650,10 @@ extension TLPhotosPickerViewController: UIImagePickerControllerDelegate, UINavig
         picker.sourceType = .camera
         var mediaTypes: [String] = []
         if self.configure.allowedPhotograph {
-            mediaTypes.append(kUTTypeImage as String)
+            mediaTypes.append(UTType.image.identifier)
         }
         if self.configure.allowedVideoRecording {
-            mediaTypes.append(kUTTypeMovie as String)
+            mediaTypes.append(UTType.movie.identifier)
             picker.videoQuality = self.configure.recordingVideoQuality
             if let duration = self.configure.maxVideoDuration {
                 picker.videoMaximumDuration = duration
@@ -746,7 +720,7 @@ extension TLPhotosPickerViewController: UIImagePickerControllerDelegate, UINavig
                 }
             })
         }
-        else if (info[.mediaType] as? String) == kUTTypeMovie as String {
+      else if (info[.mediaType] as? String) == UTType.movie.identifier as String {
             var placeholderAsset: PHObjectPlaceholder? = nil
             PHPhotoLibrary.shared().performChanges({
                 let newAssetRequest = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: info[.mediaURL] as! URL)
@@ -1298,7 +1272,6 @@ extension TLPhotosPickerViewController: UIViewControllerPreviewingDelegate {
     
     public func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {}
     
-    @available(iOS 13.0, *)
     public func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
         guard self.previewAtForceTouch == true else { return nil }
         guard let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else { return nil }

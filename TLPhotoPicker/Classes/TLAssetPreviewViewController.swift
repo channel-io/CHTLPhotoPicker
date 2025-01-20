@@ -170,13 +170,7 @@ private extension TLAssetPreviewViewController {
 }
 
 private extension UIColor {
-    static var previewBackground: UIColor {
-        if #available(iOS 13.0, *) {
-            return .systemBackground
-        } else {
-            return .white
-        }
-    }
+    static var previewBackground: UIColor { return .systemBackground }
 }
 
 private extension UIView {
@@ -195,10 +189,6 @@ private extension UIView {
 
 private extension UIApplication {
     var orientation: UIInterfaceOrientation? {
-        if #available(iOS 13.0, *) {
-            return windows.first(where: { $0.isKeyWindow })?.windowScene?.interfaceOrientation
-        } else {
-            return statusBarOrientation
-        }
+        return windows.first(where: { $0.isKeyWindow })?.windowScene?.interfaceOrientation
     }
 }
