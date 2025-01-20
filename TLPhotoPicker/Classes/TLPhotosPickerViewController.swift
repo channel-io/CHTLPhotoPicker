@@ -106,6 +106,7 @@ public struct TLPhotosPickerConfigure {
     public var groupByFetch: PHFetchedResultGroupedBy? = nil
     public var supportedInterfaceOrientations: UIInterfaceOrientationMask = .portrait
     public var popup: [PopupConfigure] = []
+    public var popupBgColor: UIColor = .systemBackground
     public init() {
         
     }
@@ -1239,6 +1240,7 @@ extension TLPhotosPickerViewController: UITableViewDelegate, UITableViewDataSour
         let collection = self.collections[indexPath.row]
         cell.titleLabel.text = collection.title
         cell.subTitleLabel.text = "\(collection.fetchResult?.count ?? 0)"
+        cell.bgColor = self.configure.popupBgColor
         if let phAsset = collection.getAsset(at: collection.useCameraButton ? 1 : 0) {
             let scale = UIScreen.main.scale
             let size = CGSize(width: 80*scale, height: 80*scale)

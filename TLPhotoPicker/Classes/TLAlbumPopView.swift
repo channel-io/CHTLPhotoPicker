@@ -61,6 +61,11 @@ open class TLAlbumPopView: UIView, PopupViewProtocol {
     @IBOutlet open var tableView: UITableView!
     @objc var originalFrame = CGRect.zero
     @objc var show = false
+    open var bgColor = UIColor.systemBackground {
+        didSet {
+          self.backgroundColor = bgColor
+        }
+    }
     
     deinit {
 //        print("deinit TLAlbumPopView")
@@ -72,9 +77,7 @@ open class TLAlbumPopView: UIView, PopupViewProtocol {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(tapBgView))
         self.bgView.addGestureRecognizer(tapGesture)
         self.tableView.register(UINib(nibName: "TLCollectionTableViewCell", bundle: TLBundle.bundle()), forCellReuseIdentifier: "TLCollectionTableViewCell")
-        if #available(iOS 13.0, *) {
-            self.popupView.backgroundColor = .systemBackground
-        }
+        self.popupView.backgroundColor = self.bgColor
     }
     
     @objc func tapBgView() {
