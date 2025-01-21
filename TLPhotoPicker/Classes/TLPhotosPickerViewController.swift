@@ -44,7 +44,6 @@ public protocol TLPhotosPickerLogDelegate: AnyObject {
     func deselectedPhoto(picker: TLPhotosPickerViewController, at: Int)
     func selectedPhoto(picker: TLPhotosPickerViewController, at: Int)
     func selectedAlbum(picker: TLPhotosPickerViewController, title: String, at: Int)
-    func changedPhotoLibrary(picker: TLPhotosPickerViewController)
 }
 
 extension TLPhotosPickerLogDelegate {
@@ -972,8 +971,6 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
                 self.albumPopView.tableView.reloadRows(at: [IndexPath(row: self.getfocusedIndex(), section: 0)], with: .none)
             }
         }
-      
-      self.logDelegate?.changedPhotoLibrary(picker: self)
     }
 }
 
