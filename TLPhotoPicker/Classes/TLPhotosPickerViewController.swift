@@ -224,6 +224,11 @@ open class TLPhotosPickerViewController: UIViewController {
     private var placeholderThumbnail: UIImage? = nil
     private var cameraImage: UIImage? = nil
     
+    // Multi-selection gesture
+    private var panGestureRecognizer: UIPanGestureRecognizer?
+    private var isMultiSelecting = false
+    private var lastSelectedIndexPath: IndexPath?
+    
     deinit {
         //print("deinit TLPhotosPickerViewController")
         PHPhotoLibrary.shared().unregisterChangeObserver(self)
@@ -474,6 +479,9 @@ extension TLPhotosPickerViewController {
         self.customDataSouces?.registerSupplementView(collectionView: self.collectionView)
         self.navigationBar.delegate = self
         updateUserInterfaceStyle()
+        
+        // Setup multi-selection pan gesture
+        setupMultiSelectionGesture()
     }
     
     private func updatePresentLimitedLibraryButton() {
@@ -623,6 +631,106 @@ extension TLPhotosPickerViewController {
             self.focusedCollection = collection
             self.updateTitle()
             self.reloadCollectionView()
+        }
+    }
+    
+    // MARK: - Multi-Selection Gesture
+    private func setupMultiSelectionGesture() {
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
+        panGesture.delegate = self
+        panGesture.minimumNumberOfTouches = 1
+        panGesture.maximumNumberOfTouches = 1
+        self.collectionView.addGestureRecognizer(panGesture)
+        self.panGestureRecognizer = panGesture
+    }
+    
+    @objc private func handlePanGesture(_ gesture: UIPanGestureRecognizer) {
+        let location = gesture.location(in: self.collectionView)
+        
+        guard let indexPath = self.collectionView.indexPathForItem(at: location),
+              let collection = self.focusedCollection,
+              let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else {
+            if gesture.state == .ended || gesture.state == .cancelled {
+                isMultiSelecting = false
+                lastSelectedIndexPath = nil
+            }
+            return
+        }
+        
+        // Skip camera cell
+        let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
+        if isCameraRow {
+            if gesture.state == .ended || gesture.state == .cancelled {
+                isMultiSelecting = false
+                lastSelectedIndexPath = nil
+            }
+            return
+        }
+        
+        switch gesture.state {
+        case .began:
+            isMultiSelecting = true
+            lastSelectedIndexPath = indexPath
+            
+            // Toggle the first cell
+            toggleSelectionForMultiSelect(for: cell, at: indexPath)
+            
+        case .changed:
+            // Only process if we moved to a different cell
+            if lastSelectedIndexPath != indexPath {
+                lastSelectedIndexPath = indexPath
+                toggleSelectionForMultiSelect(for: cell, at: indexPath)
+            }
+            
+        case .ended, .cancelled:
+            isMultiSelecting = false
+            lastSelectedIndexPath = nil
+            
+        default:
+            break
+        }
+    }
+    
+    private func toggleSelectionForMultiSelect(for cell: TLPhotoCollectionViewCell, at indexPath: IndexPath) {
+        guard let collection = focusedCollection,
+              var asset = collection.getTLAsset(at: indexPath),
+              let phAsset = asset.phAsset else { return }
+        
+        let isAlreadySelected = selectedAssets.contains(where: { $0.phAsset == asset.phAsset })
+        
+        if isAlreadySelected {
+            // Deselect
+            if let index = selectedAssets.firstIndex(where: { $0.phAsset == asset.phAsset }) {
+                selectedAssets.remove(at: index)
+                #if swift(>=4.1)
+                selectedAssets = selectedAssets.enumerated().compactMap({ (offset, asset) -> TLPHAsset? in
+                    var asset = asset
+                    asset.selectedOrder = offset + 1
+                    return asset
+                })
+                #else
+                selectedAssets = selectedAssets.enumerated().flatMap({ (offset, asset) -> TLPHAsset? in
+                    var asset = asset
+                    asset.selectedOrder = offset + 1
+                    return asset
+                })
+                #endif
+                cell.selectedAsset = false
+                cell.stopPlay()
+                orderUpdateCells()
+                
+                logDelegate?.deselectedPhoto(picker: self, at: indexPath.row)
+            }
+        } else {
+            // Select
+            guard !maxCheck(), canSelect(phAsset: phAsset) else { return }
+            
+            asset.selectedOrder = selectedAssets.count + 1
+            selectedAssets.append(asset)
+            cell.selectedAsset = true
+            cell.orderLabel?.text = "\(asset.selectedOrder)"
+            
+            logDelegate?.selectedPhoto(picker: self, at: indexPath.row)
         }
     }
 }
@@ -1393,6 +1501,14 @@ extension TLPhotosPickerViewController {
 extension TLPhotosPickerViewController: UINavigationBarDelegate {
     public func position(for bar: UIBarPositioning) -> UIBarPosition {
         return .topAttached
+    }
+}
+
+// MARK: - UIGestureRecognizerDelegate
+extension TLPhotosPickerViewController: UIGestureRecognizerDelegate {
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Allow pan gesture to work simultaneously with scroll
+        return true
     }
 }
 
