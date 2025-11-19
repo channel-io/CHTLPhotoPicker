@@ -700,49 +700,7 @@ extension TLPhotosPickerViewController {
     }
     
     private func toggleSelectionForMultiSelect(for cell: TLPhotoCollectionViewCell, at indexPath: IndexPath) {
-        guard let collection = focusedCollection,
-              var asset = collection.getTLAsset(at: indexPath),
-              let phAsset = asset.phAsset else { return }
-        
-        let isAlreadySelected = selectedAssets.contains(where: { $0.phAsset == asset.phAsset })
-        
-        if isAlreadySelected {
-            // Deselect
-            if let index = selectedAssets.firstIndex(where: { $0.phAsset == asset.phAsset }) {
-                selectedAssets.remove(at: index)
-                #if swift(>=4.1)
-                selectedAssets = selectedAssets.enumerated().compactMap({ (offset, asset) -> TLPHAsset? in
-                    var asset = asset
-                    asset.selectedOrder = offset + 1
-                    return asset
-                })
-                #else
-                selectedAssets = selectedAssets.enumerated().flatMap({ (offset, asset) -> TLPHAsset? in
-                    var asset = asset
-                    asset.selectedOrder = offset + 1
-                    return asset
-                })
-                #endif
-                cell.selectedAsset = false
-                cell.stopPlay()
-                orderUpdateCells()
-                if playRequestID?.indexPath == indexPath {
-                    stopPlay()
-                }
-                
-                logDelegate?.deselectedPhoto(picker: self, at: indexPath.row)
-            }
-        } else {
-            // Select
-            guard !maxCheck(), canSelect(phAsset: phAsset) else { return }
-            
-            asset.selectedOrder = selectedAssets.count + 1
-            selectedAssets.append(asset)
-            cell.selectedAsset = true
-            cell.orderLabel?.text = "\(asset.selectedOrder)"
-            
-            logDelegate?.selectedPhoto(picker: self, at: indexPath.row)
-        }
+        toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
     }
 }
 
@@ -1453,10 +1411,12 @@ extension TLPhotosPickerViewController {
         }
     }
     
-    func toggleSelection(for cell: TLPhotoCollectionViewCell, at indexPath: IndexPath) {
+    func toggleSelection(for cell: TLPhotoCollectionViewCell, at indexPath: IndexPath, isMultiSelectMode: Bool = false) {
         guard let collection = focusedCollection, var asset = collection.getTLAsset(at: indexPath), let phAsset = asset.phAsset else { return }
         
-        cell.popScaleAnim()
+        if !isMultiSelectMode {
+            cell.popScaleAnim()
+        }
         
         if let index = selectedAssets.firstIndex(where: { $0.phAsset == asset.phAsset }) {
         //deselect
@@ -1494,7 +1454,7 @@ extension TLPhotosPickerViewController {
             cell.selectedAsset = true
             cell.orderLabel?.text = "\(asset.selectedOrder)"
             
-            if asset.type != .photo, configure.autoPlay {
+            if asset.type != .photo, configure.autoPlay, !isMultiSelectMode {
                 playVideo(asset: asset, indexPath: indexPath)
             }
             
