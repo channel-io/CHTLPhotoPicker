@@ -669,6 +669,8 @@ extension TLPhotosPickerViewController {
                 
                 // Activate multi-select mode
                 isMultiSelecting = true
+                // Disable scrolling during multi-selection
+                collectionView.isScrollEnabled = false
             }
             
             guard let indexPath = self.collectionView.indexPathForItem(at: location),
@@ -693,6 +695,8 @@ extension TLPhotosPickerViewController {
             isMultiSelecting = false
             lastSelectedIndexPath = nil
             panGestureStartLocation = .zero
+            // Re-enable scrolling when multi-selection ends
+            collectionView.isScrollEnabled = true
             
         default:
             break
@@ -986,6 +990,8 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
         DispatchQueue.main.async {
             self.isMultiSelecting = false
             self.lastSelectedIndexPath = nil
+            // Re-enable scrolling if it was disabled during multi-selection
+            self.collectionView.isScrollEnabled = true
             guard let changes = self.getChanges(changeInstance) else {
                 return
             }
