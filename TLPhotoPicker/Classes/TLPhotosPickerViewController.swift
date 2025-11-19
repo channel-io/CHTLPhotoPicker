@@ -1172,10 +1172,15 @@ extension TLPhotosPickerViewController: UICollectionViewDelegate,UICollectionVie
         }
       
         // channel custom
+        let useCameraButton = collection.useCameraButton
         cell.didTapImageArea = { [weak self] in
           guard let currentFetchResult = self?.focusedCollection?.fetchResult else { return }
           
-          self?.didTapImageAreaOnCell?(currentFetchResult, indexPath.item - 1)
+          // 카메라 셀이 있을 때만 -1 오프셋, 없으면 그대로 사용
+          let assetIndex = indexPath.item - (useCameraButton ? 1 : 0)
+          guard assetIndex >= 0 else { return }
+          
+          self?.didTapImageAreaOnCell?(currentFetchResult, assetIndex)
         }
         
         if let selectedAsset = getSelectedAssets(asset) {
