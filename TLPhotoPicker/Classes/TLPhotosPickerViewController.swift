@@ -228,6 +228,8 @@ open class TLPhotosPickerViewController: UIViewController {
     private var panGestureRecognizer: UIPanGestureRecognizer?
     private var isMultiSelecting = false
     private var lastSelectedIndexPath: IndexPath?
+    private var panGestureStartLocation: CGPoint = .zero
+    private let minimumPanDistance: CGFloat = 10.0
     
     deinit {
         //print("deinit TLPhotosPickerViewController")
@@ -647,35 +649,40 @@ extension TLPhotosPickerViewController {
     @objc private func handlePanGesture(_ gesture: UIPanGestureRecognizer) {
         let location = gesture.location(in: self.collectionView)
         
-        guard let indexPath = self.collectionView.indexPathForItem(at: location),
-              let collection = self.focusedCollection,
-              let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else {
-            if gesture.state == .ended || gesture.state == .cancelled {
-                isMultiSelecting = false
-                lastSelectedIndexPath = nil
-            }
-            return
-        }
-        
-        // Skip camera cell
-        let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-        if isCameraRow {
-            if gesture.state == .ended || gesture.state == .cancelled {
-                isMultiSelecting = false
-                lastSelectedIndexPath = nil
-            }
-            return
-        }
-        
         switch gesture.state {
         case .began:
-            isMultiSelecting = true
-            lastSelectedIndexPath = indexPath
-            
-            // Toggle the first cell
-            toggleSelectionForMultiSelect(for: cell, at: indexPath)
+            // Store the starting location
+            panGestureStartLocation = location
+            isMultiSelecting = false
+            lastSelectedIndexPath = nil
             
         case .changed:
+            // Check if minimum distance threshold has been met
+            if !isMultiSelecting {
+                let translation = gesture.translation(in: self.collectionView)
+                let distance = sqrt(translation.x * translation.x + translation.y * translation.y)
+                
+                // Require minimum distance before activating multi-select
+                if distance < minimumPanDistance {
+                    return
+                }
+                
+                // Activate multi-select mode
+                isMultiSelecting = true
+            }
+            
+            guard let indexPath = self.collectionView.indexPathForItem(at: location),
+                  let collection = self.focusedCollection,
+                  let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else {
+                return
+            }
+            
+            // Skip camera cell
+            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
+            if isCameraRow {
+                return
+            }
+            
             // Only process if we moved to a different cell
             if lastSelectedIndexPath != indexPath {
                 lastSelectedIndexPath = indexPath
@@ -685,6 +692,7 @@ extension TLPhotosPickerViewController {
         case .ended, .cancelled:
             isMultiSelecting = false
             lastSelectedIndexPath = nil
+            panGestureStartLocation = .zero
             
         default:
             break
