@@ -1176,7 +1176,7 @@ extension TLPhotosPickerViewController: UICollectionViewDelegate,UICollectionVie
         cell.didTapImageArea = { [weak self] in
           guard let currentFetchResult = self?.focusedCollection?.fetchResult else { return }
           
-          // 카메라 셀이 있을 때만 -1 오프셋, 없으면 그대로 사용
+          // Apply -1 offset only when camera button is present
           let assetIndex = indexPath.item - (useCameraButton ? 1 : 0)
           guard assetIndex >= 0 else { return }
           
@@ -1507,17 +1507,31 @@ extension TLPhotosPickerViewController: UINavigationBarDelegate {
 
 // MARK: - UIGestureRecognizerDelegate
 extension TLPhotosPickerViewController: UIGestureRecognizerDelegate {
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Only allow simultaneous recognition if it's our pan gesture and movement is primarily horizontal
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Only allow our pan gesture to begin for horizontal movement
         if gestureRecognizer == panGestureRecognizer, let pan = gestureRecognizer as? UIPanGestureRecognizer {
-            // If already in multi-select mode, always allow to ensure gesture can complete properly
-            if isMultiSelecting {
-                return true
-            }
-            
             let translation = pan.translation(in: collectionView)
-            // Allow if horizontal movement is greater than vertical
-            return abs(translation.x) > abs(translation.y)
+            let velocity = pan.velocity(in: collectionView)
+            
+            // Check both translation and velocity to determine direction early
+            let absTranslationX = abs(translation.x)
+            let absTranslationY = abs(translation.y)
+            let absVelocityX = abs(velocity.x)
+            let absVelocityY = abs(velocity.y)
+            
+            // Allow if horizontal movement or velocity is greater than vertical
+            let isHorizontalTranslation = absTranslationX > absTranslationY
+            let isHorizontalVelocity = absVelocityX > absVelocityY
+            
+            return isHorizontalTranslation || isHorizontalVelocity
+        }
+        return true
+    }
+    
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Allow simultaneous recognition with collection view's pan gesture
+        if gestureRecognizer == panGestureRecognizer {
+            return otherGestureRecognizer == collectionView.panGestureRecognizer
         }
         return false
     }
