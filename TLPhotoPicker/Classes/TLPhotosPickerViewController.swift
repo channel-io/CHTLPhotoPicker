@@ -1020,18 +1020,34 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
                     self.focusedCollection?.fetchResult = changes.fetchResultAfterChanges
                     self.reloadCollectionView()
                 }else {
+                    // Capture changedIndexes before any updates (Apple recommendation)
+                    let changedIndexPaths: [IndexPath]? = {
+                        if let changed = changes.changedIndexes, changed.count > 0 {
+                            return changed.map { IndexPath(item: $0+addIndex, section:0) }
+                        }
+                        return nil
+                    }()
+                    
                     self.collectionView.performBatchUpdates({ [weak self] in
                         guard let `self` = self else { return }
                         self.focusedCollection?.fetchResult = changes.fetchResultAfterChanges
+                        
+                        // 1. Delete
                         if let removed = changes.removedIndexes, removed.count > 0 {
                             self.collectionView.deleteItems(at: removed.map { IndexPath(item: $0+addIndex, section:0) })
                         }
+                        
+                        // 2. Insert
                         if let inserted = changes.insertedIndexes, inserted.count > 0 {
                             self.collectionView.insertItems(at: inserted.map { IndexPath(item: $0+addIndex, section:0) })
                         }
-                        if let changed = changes.changedIndexes, changed.count > 0 {
-                            self.collectionView.reloadItems(at: changed.map { IndexPath(item: $0+addIndex, section:0) })
+                        
+                        // 3. Reload (using captured index paths)
+                        if let changedIndexPaths = changedIndexPaths {
+                            self.collectionView.reloadItems(at: changedIndexPaths)
                         }
+                        
+                        // 4. Move (must be last, as recommended by Apple)
                         changes.enumerateMoves { fromIndex, toIndex in
                             self.collectionView.moveItem(at: IndexPath(item: fromIndex + addIndex, section: 0),
                                                          to: IndexPath(item: toIndex + addIndex, section: 0))
