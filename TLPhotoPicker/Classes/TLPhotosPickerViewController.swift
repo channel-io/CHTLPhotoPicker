@@ -726,6 +726,9 @@ extension TLPhotosPickerViewController {
                 cell.selectedAsset = false
                 cell.stopPlay()
                 orderUpdateCells()
+                if playRequestID?.indexPath == indexPath {
+                    stopPlay()
+                }
                 
                 logDelegate?.deselectedPhoto(picker: self, at: indexPath.row)
             }
