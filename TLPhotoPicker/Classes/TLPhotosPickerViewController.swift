@@ -1013,11 +1013,10 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
     }
     
     public func photoLibraryDidChange(_ changeInstance: PHChange) {
-        var addIndex = 0
-        if getfocusedIndex() == 0 {
-            addIndex = self.usedCameraButton ? 1 : 0
-        }
+        let addIndex = self.focusedCollection?.useCameraButton == true ? 1 : 0
         DispatchQueue.main.async {
+            self.isMultiSelecting = false
+            self.lastSelectedIndexPath = nil
             guard let changes = self.getChanges(changeInstance) else {
                 return
             }
@@ -1061,18 +1060,14 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
                         if let inserted = changes.insertedIndexes, inserted.count > 0 {
                             self.collectionView.insertItems(at: inserted.map { IndexPath(item: $0+addIndex, section:0) })
                         }
+                        if let changed = changes.changedIndexes, changed.count > 0 {
+                            self.collectionView.reloadItems(at: changed.map { IndexPath(item: $0+addIndex, section:0) })
+                        }
                         changes.enumerateMoves { fromIndex, toIndex in
-                            self.collectionView.moveItem(at: IndexPath(item: fromIndex, section: 0),
-                                                         to: IndexPath(item: toIndex, section: 0))
+                            self.collectionView.moveItem(at: IndexPath(item: fromIndex + addIndex, section: 0),
+                                                         to: IndexPath(item: toIndex + addIndex, section: 0))
                         }
-                    }, completion: { [weak self] (completed) in
-                        guard let `self` = self else { return }
-                        if completed {
-                            if let changed = changes.changedIndexes, changed.count > 0 {
-                                self.collectionView.reloadItems(at: changed.map { IndexPath(item: $0+addIndex, section:0) })
-                            }
-                        }
-                    })
+                    }, completion: nil)
                 }
             }else {
                 self.focusedCollection?.fetchResult = changes.fetchResultAfterChanges
