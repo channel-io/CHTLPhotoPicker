@@ -1505,6 +1505,11 @@ extension TLPhotosPickerViewController: UIGestureRecognizerDelegate {
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         // Only allow simultaneous recognition if it's our pan gesture and movement is primarily horizontal
         if gestureRecognizer == panGestureRecognizer, let pan = gestureRecognizer as? UIPanGestureRecognizer {
+            // If already in multi-select mode, always allow to ensure gesture can complete properly
+            if isMultiSelecting {
+                return true
+            }
+            
             let translation = pan.translation(in: collectionView)
             // Allow if horizontal movement is greater than vertical
             return abs(translation.x) > abs(translation.y)
