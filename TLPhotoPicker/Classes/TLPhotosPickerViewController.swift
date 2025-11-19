@@ -1489,8 +1489,13 @@ extension TLPhotosPickerViewController: UINavigationBarDelegate {
 // MARK: - UIGestureRecognizerDelegate
 extension TLPhotosPickerViewController: UIGestureRecognizerDelegate {
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Allow pan gesture to work simultaneously with scroll
-        return true
+        // Only allow simultaneous recognition if it's our pan gesture and movement is primarily horizontal
+        if gestureRecognizer == panGestureRecognizer, let pan = gestureRecognizer as? UIPanGestureRecognizer {
+            let translation = pan.translation(in: collectionView)
+            // Allow if horizontal movement is greater than vertical
+            return abs(translation.x) > abs(translation.y)
+        }
+        return false
     }
 }
 
