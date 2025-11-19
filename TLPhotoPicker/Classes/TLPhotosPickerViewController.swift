@@ -228,7 +228,6 @@ open class TLPhotosPickerViewController: UIViewController {
     private var panGestureRecognizer: UIPanGestureRecognizer?
     private var isMultiSelecting = false
     private var lastSelectedIndexPath: IndexPath?
-    private var panGestureStartLocation: CGPoint = .zero
     private let minimumPanDistance: CGFloat = 10.0
     
     deinit {
@@ -651,8 +650,6 @@ extension TLPhotosPickerViewController {
         
         switch gesture.state {
         case .began:
-            // Store the starting location
-            panGestureStartLocation = location
             isMultiSelecting = false
             lastSelectedIndexPath = nil
             
@@ -702,7 +699,6 @@ extension TLPhotosPickerViewController {
         case .ended, .cancelled:
             isMultiSelecting = false
             lastSelectedIndexPath = nil
-            panGestureStartLocation = .zero
             // Re-enable scrolling when multi-selection ends
             collectionView.isScrollEnabled = true
             
