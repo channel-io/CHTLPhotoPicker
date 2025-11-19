@@ -667,6 +667,14 @@ extension TLPhotosPickerViewController {
                     return
                 }
                 
+                // Only activate multi-select for horizontal panning (not vertical scrolling)
+                let absX = abs(translation.x)
+                let absY = abs(translation.y)
+                if absX <= absY {
+                    // Vertical or diagonal movement - don't activate multi-select
+                    return
+                }
+                
                 // Activate multi-select mode
                 isMultiSelecting = true
                 // Disable scrolling during multi-selection
