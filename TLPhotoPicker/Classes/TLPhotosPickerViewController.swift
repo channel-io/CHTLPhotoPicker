@@ -1097,6 +1097,9 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
         DispatchQueue.main.async {
             self.isMultiSelecting = false
             self.lastSelectedIndexPath = nil
+            self.firstSelectedIndexPath = nil
+            self.processedIndexPaths.removeAll()
+            self.isDeselectMode = false
             // Re-enable scrolling if it was disabled during multi-selection
             self.collectionView.isScrollEnabled = true
             guard let changes = self.getChanges(changeInstance) else {
