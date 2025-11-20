@@ -229,6 +229,7 @@ open class TLPhotosPickerViewController: UIViewController {
     private var isMultiSelecting = false
     private var lastSelectedIndexPath: IndexPath?
     private var firstSelectedIndexPath: IndexPath?
+    private var processedIndexPaths = Set<IndexPath>()
     private let minimumPanDistance: CGFloat = 10.0
     
     deinit {
@@ -654,6 +655,7 @@ extension TLPhotosPickerViewController {
             isMultiSelecting = false
             lastSelectedIndexPath = nil
             firstSelectedIndexPath = nil
+            processedIndexPaths.removeAll()
             
         case .changed:
             // Check if minimum distance threshold has been met
@@ -708,6 +710,7 @@ extension TLPhotosPickerViewController {
             isMultiSelecting = false
             lastSelectedIndexPath = nil
             firstSelectedIndexPath = nil
+            processedIndexPaths.removeAll()
             // Re-enable scrolling when multi-selection ends
             collectionView.isScrollEnabled = true
             
@@ -730,6 +733,11 @@ extension TLPhotosPickerViewController {
         for row in minRow...maxRow {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
             
+            // Skip if already processed
+            if processedIndexPaths.contains(indexPath) {
+                continue
+            }
+            
             // Check if this index path is valid
             let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
             guard row < itemCount else { continue }
@@ -741,6 +749,7 @@ extension TLPhotosPickerViewController {
             // Toggle selection for this cell
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell {
                 toggleSelectionForMultiSelect(for: cell, at: indexPath)
+                processedIndexPaths.insert(indexPath)
             }
         }
     }
