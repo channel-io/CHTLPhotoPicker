@@ -230,6 +230,7 @@ open class TLPhotosPickerViewController: UIViewController {
     private var lastSelectedIndexPath: IndexPath?
     private var firstSelectedIndexPath: IndexPath?
     private var processedIndexPaths = Set<Int>()
+    private var isDeselectMode = false // Track if we're in deselect mode
     private let minimumPanDistance: CGFloat = 10.0
     
     deinit {
@@ -656,6 +657,7 @@ extension TLPhotosPickerViewController {
             lastSelectedIndexPath = nil
             firstSelectedIndexPath = nil
             processedIndexPaths.removeAll()
+            isDeselectMode = false
             
         case .changed:
             // Check if minimum distance threshold has been met
@@ -697,6 +699,12 @@ extension TLPhotosPickerViewController {
             // Store first selected index if not set
             if firstSelectedIndexPath == nil {
                 firstSelectedIndexPath = indexPath
+                
+                // Determine mode based on first cell's selection state
+                if let asset = collection.getTLAsset(at: indexPath),
+                   let phAsset = asset.phAsset {
+                    isDeselectMode = selectedAssets.contains(where: { $0.phAsset == phAsset })
+                }
             }
             
             // Only process if we moved to a different cell
@@ -711,6 +719,7 @@ extension TLPhotosPickerViewController {
             lastSelectedIndexPath = nil
             firstSelectedIndexPath = nil
             processedIndexPaths.removeAll()
+            isDeselectMode = false
             // Re-enable scrolling when multi-selection ends
             collectionView.isScrollEnabled = true
             
@@ -731,9 +740,9 @@ extension TLPhotosPickerViewController {
         let maxRow = max(startIndexPath.row, endIndexPath.row)
         let currentRange = Set(minRow...maxRow)
         
-        // Deselect cells that were in previous range but not in current range
-        let toDeselect = processedIndexPaths.subtracting(currentRange)
-        for row in toDeselect {
+        // Process cells that were in previous range but not in current range
+        let toProcess = processedIndexPaths.subtracting(currentRange)
+        for row in toProcess {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
             
             // Check if this index path is valid
@@ -744,18 +753,27 @@ extension TLPhotosPickerViewController {
             let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
             if isCameraRow { continue }
             
-            // Deselect this cell
+            // Reverse the operation for cells outside current range
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
                let phAsset = asset.phAsset {
-                // Only deselect if it's currently selected
-                if selectedAssets.contains(where: { $0.phAsset == phAsset }) {
-                    toggleSelectionForMultiSelect(for: cell, at: indexPath)
+                let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
+                
+                if isDeselectMode {
+                    // In deselect mode, re-select cells outside range
+                    if !isSelected {
+                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
+                    }
+                } else {
+                    // In select mode, deselect cells outside range
+                    if isSelected {
+                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
+                    }
                 }
             }
         }
         
-        // Select cells in current range
+        // Process cells in current range
         for row in currentRange {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
             
@@ -772,13 +790,22 @@ extension TLPhotosPickerViewController {
             let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
             if isCameraRow { continue }
             
-            // Select this cell
+            // Apply operation based on mode
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
                let phAsset = asset.phAsset {
-                // Only select if it's not already selected
-                if !selectedAssets.contains(where: { $0.phAsset == phAsset }) {
-                    toggleSelectionForMultiSelect(for: cell, at: indexPath)
+                let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
+                
+                if isDeselectMode {
+                    // Deselect if currently selected
+                    if isSelected {
+                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
+                    }
+                } else {
+                    // Select if currently not selected
+                    if !isSelected {
+                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
+                    }
                 }
             }
         }
