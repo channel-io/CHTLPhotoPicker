@@ -228,6 +228,7 @@ open class TLPhotosPickerViewController: UIViewController {
     private var panGestureRecognizer: UIPanGestureRecognizer?
     private var isMultiSelecting = false
     private var lastSelectedIndexPath: IndexPath?
+    private var firstSelectedIndexPath: IndexPath?
     private let minimumPanDistance: CGFloat = 10.0
     
     deinit {
@@ -652,6 +653,7 @@ extension TLPhotosPickerViewController {
         case .began:
             isMultiSelecting = false
             lastSelectedIndexPath = nil
+            firstSelectedIndexPath = nil
             
         case .changed:
             // Check if minimum distance threshold has been met
@@ -690,16 +692,22 @@ extension TLPhotosPickerViewController {
                 return
             }
             
+            // Store first selected index if not set
+            if firstSelectedIndexPath == nil {
+                firstSelectedIndexPath = indexPath
+            }
+            
             // Only process if we moved to a different cell
             if lastSelectedIndexPath != indexPath {
-                // Select all cells between last and current index path
-                selectCellsBetween(from: lastSelectedIndexPath, to: indexPath)
+                // Select all cells in rectangular region between first and current
+                selectCellsBetween(from: firstSelectedIndexPath!, to: indexPath)
                 lastSelectedIndexPath = indexPath
             }
             
         case .ended, .cancelled:
             isMultiSelecting = false
             lastSelectedIndexPath = nil
+            firstSelectedIndexPath = nil
             // Re-enable scrolling when multi-selection ends
             collectionView.isScrollEnabled = true
             
@@ -712,52 +720,27 @@ extension TLPhotosPickerViewController {
         toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
     }
     
-    private func selectCellsBetween(from startIndexPath: IndexPath?, to endIndexPath: IndexPath) {
-        guard let startIndexPath = startIndexPath else {
-            // First cell, just select it
-            if let cell = collectionView.cellForItem(at: endIndexPath) as? TLPhotoCollectionViewCell {
-                toggleSelectionForMultiSelect(for: cell, at: endIndexPath)
-            }
-            return
-        }
+    private func selectCellsBetween(from startIndexPath: IndexPath, to endIndexPath: IndexPath) {
+        guard let collection = focusedCollection else { return }
         
-        // Calculate the rectangular region between start and end
+        // Select all cells in the index range
         let minRow = min(startIndexPath.row, endIndexPath.row)
         let maxRow = max(startIndexPath.row, endIndexPath.row)
         
-        // Get number of columns from configure
-        let numberOfColumns = configure.numberOfColumn
-        
-        // Convert rows to 2D grid coordinates
-        let startCol = startIndexPath.row % numberOfColumns
-        let startRowIndex = startIndexPath.row / numberOfColumns
-        let endCol = endIndexPath.row % numberOfColumns
-        let endRowIndex = endIndexPath.row / numberOfColumns
-        
-        let minCol = min(startCol, endCol)
-        let maxCol = max(startCol, endCol)
-        let minRowIndex = min(startRowIndex, endRowIndex)
-        let maxRowIndex = max(startRowIndex, endRowIndex)
-        
-        // Select all cells in the rectangular region
-        for rowIndex in minRowIndex...maxRowIndex {
-            for col in minCol...maxCol {
-                let row = rowIndex * numberOfColumns + col
-                let indexPath = IndexPath(row: row, section: endIndexPath.section)
-                
-                // Check if this index path is valid
-                guard let collection = focusedCollection else { continue }
-                let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
-                guard row < itemCount else { continue }
-                
-                // Skip camera cell
-                let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-                if isCameraRow { continue }
-                
-                // Toggle selection for this cell
-                if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell {
-                    toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                }
+        for row in minRow...maxRow {
+            let indexPath = IndexPath(row: row, section: endIndexPath.section)
+            
+            // Check if this index path is valid
+            let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
+            guard row < itemCount else { continue }
+            
+            // Skip camera cell
+            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
+            if isCameraRow { continue }
+            
+            // Toggle selection for this cell
+            if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell {
+                toggleSelectionForMultiSelect(for: cell, at: indexPath)
             }
         }
     }
