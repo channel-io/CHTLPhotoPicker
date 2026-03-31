@@ -224,13 +224,12 @@ open class TLPhotosPickerViewController: UIViewController {
     private var placeholderThumbnail: UIImage? = nil
     private var cameraImage: UIImage? = nil
     
-    // Multi-selection gesture
     private var panGestureRecognizer: UIPanGestureRecognizer?
     private var isMultiSelecting = false
     private var lastSelectedIndexPath: IndexPath?
     private var firstSelectedIndexPath: IndexPath?
     private var processedIndexPaths = Set<Int>()
-    private var isDeselectMode = false // Track if we're in deselect mode
+    private var isDeselectMode = false
     private let minimumPanDistance: CGFloat = 10.0
     
     deinit {
@@ -669,54 +668,36 @@ extension TLPhotosPickerViewController {
             resetMultiSelectState()
 
         case .changed:
-            // Check if minimum distance threshold has been met
             if !isMultiSelecting {
                 let translation = gesture.translation(in: self.collectionView)
                 let distance = sqrt(translation.x * translation.x + translation.y * translation.y)
-                
-                // Require minimum distance before activating multi-select
-                if distance < minimumPanDistance {
-                    return
-                }
-                
-                // Only activate multi-select for horizontal panning (not vertical scrolling)
+                if distance < minimumPanDistance { return }
+
                 let absX = abs(translation.x)
                 let absY = abs(translation.y)
-                if absX <= absY {
-                    // Vertical or diagonal movement - don't activate multi-select
-                    return
-                }
-                
-                // Activate multi-select mode
+                if absX <= absY { return }
+
                 isMultiSelecting = true
-                // Disable scrolling during multi-selection
                 collectionView.isScrollEnabled = false
             }
-            
+
             guard let indexPath = self.collectionView.indexPathForItem(at: location),
                   let collection = self.focusedCollection,
                   let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else {
                 return
             }
-            
-            if isCameraIndexPath(indexPath, in: collection) {
-                return
-            }
-            
-            // Store first selected index if not set
+
+            if isCameraIndexPath(indexPath, in: collection) { return }
+
             if firstSelectedIndexPath == nil {
                 firstSelectedIndexPath = indexPath
-                
-                // Determine mode based on first cell's selection state
                 if let asset = collection.getTLAsset(at: indexPath),
                    let phAsset = asset.phAsset {
                     isDeselectMode = selectedAssets.contains(where: { $0.phAsset == phAsset })
                 }
             }
-            
-            // Only process if we moved to a different cell
+
             if lastSelectedIndexPath != indexPath {
-                // Select all cells in rectangular region between first and current
                 selectCellsBetween(from: firstSelectedIndexPath!, to: indexPath)
                 lastSelectedIndexPath = indexPath
             }
@@ -731,17 +712,13 @@ extension TLPhotosPickerViewController {
     
     private func selectCellsBetween(from startIndexPath: IndexPath, to endIndexPath: IndexPath) {
         guard let collection = focusedCollection else { return }
-        
-        // Calculate current range
+
         let minRow = min(startIndexPath.row, endIndexPath.row)
         let maxRow = max(startIndexPath.row, endIndexPath.row)
         let currentRange = Set(minRow...maxRow)
-        
-        // Process cells that were in previous range but not in current range
         let toProcess = processedIndexPaths.subtracting(currentRange)
         for row in toProcess {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
-            
             let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
             guard row < itemCount else { continue }
             if isCameraIndexPath(indexPath, in: collection) { continue }
@@ -775,7 +752,6 @@ extension TLPhotosPickerViewController {
             }
         }
         
-        // Update processed index paths to current range
         processedIndexPaths = currentRange
     }
 }
@@ -1109,22 +1085,15 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
                         guard let `self` = self else { return }
                         self.focusedCollection?.fetchResult = changes.fetchResultAfterChanges
                         
-                        // 1. Delete
                         if let removed = changes.removedIndexes, removed.count > 0 {
-                            self.collectionView.deleteItems(at: removed.map { IndexPath(item: $0+addIndex, section:0) })
+                            self.collectionView.deleteItems(at: removed.map { IndexPath(item: $0+addIndex, section: 0) })
                         }
-                        
-                        // 2. Insert
                         if let inserted = changes.insertedIndexes, inserted.count > 0 {
-                            self.collectionView.insertItems(at: inserted.map { IndexPath(item: $0+addIndex, section:0) })
+                            self.collectionView.insertItems(at: inserted.map { IndexPath(item: $0+addIndex, section: 0) })
                         }
-                        
-                        // 3. Reload (using captured index paths)
                         if let changedIndexPaths = changedIndexPaths {
                             self.collectionView.reloadItems(at: changedIndexPaths)
                         }
-                        
-                        // 4. Move (must be last, as recommended by Apple)
                         changes.enumerateMoves { fromIndex, toIndex in
                             self.collectionView.moveItem(at: IndexPath(item: fromIndex + addIndex, section: 0),
                                                          to: IndexPath(item: toIndex + addIndex, section: 0))
@@ -1576,22 +1545,14 @@ extension TLPhotosPickerViewController: UIGestureRecognizerDelegate {
             let translation = pan.translation(in: collectionView)
             let velocity = pan.velocity(in: collectionView)
             
-            // Check both translation and velocity to determine direction early
-            let absTranslationX = abs(translation.x)
-            let absTranslationY = abs(translation.y)
-            let absVelocityX = abs(velocity.x)
-            let absVelocityY = abs(velocity.y)
-            
-            let isHorizontalTranslation = absTranslationX > absTranslationY
-            let isHorizontalVelocity = absVelocityX > absVelocityY
-
+            let isHorizontalTranslation = abs(translation.x) > abs(translation.y)
+            let isHorizontalVelocity = abs(velocity.x) > abs(velocity.y)
             return isHorizontalTranslation && isHorizontalVelocity
         }
         return true
     }
     
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Allow simultaneous recognition with collection view's pan gesture
         if gestureRecognizer == panGestureRecognizer {
             return otherGestureRecognizer == collectionView.panGestureRecognizer
         }
