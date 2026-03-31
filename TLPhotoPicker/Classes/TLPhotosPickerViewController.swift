@@ -1136,12 +1136,14 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
                     self.focusedCollection?.fetchResult = changes.fetchResultAfterChanges
                     self.reloadCollectionView()
                 }else {
-                    // Capture changedIndexes before any updates (Apple recommendation)
+                    // Capture changedIndexes before any updates (Apple recommendation).
+                    // Exclude indexes that are also being removed to prevent batch update conflict.
+                    let removedIndexes = changes.removedIndexes ?? IndexSet()
                     let changedIndexPaths: [IndexPath]? = {
-                        if let changed = changes.changedIndexes, changed.count > 0 {
-                            return changed.map { IndexPath(item: $0+addIndex, section:0) }
-                        }
-                        return nil
+                        guard let changed = changes.changedIndexes, changed.count > 0 else { return nil }
+                        let filtered = changed.filter { !removedIndexes.contains($0) }
+                        guard !filtered.isEmpty else { return nil }
+                        return filtered.map { IndexPath(item: $0+addIndex, section: 0) }
                     }()
                     
                     self.collectionView.performBatchUpdates({ [weak self] in
