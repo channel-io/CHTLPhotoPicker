@@ -639,6 +639,10 @@ extension TLPhotosPickerViewController {
     }
     
     // MARK: - Multi-Selection Gesture
+    private func isCameraIndexPath(_ indexPath: IndexPath, in collection: TLAssetsCollection) -> Bool {
+        return collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
+    }
+
     private func resetMultiSelectState() {
         isMultiSelecting = false
         lastSelectedIndexPath = nil
@@ -695,9 +699,7 @@ extension TLPhotosPickerViewController {
                 return
             }
             
-            // Skip camera cell
-            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-            if isCameraRow {
+            if isCameraIndexPath(indexPath, in: collection) {
                 return
             }
             
@@ -727,10 +729,6 @@ extension TLPhotosPickerViewController {
         }
     }
     
-    private func toggleSelectionForMultiSelect(for cell: TLPhotoCollectionViewCell, at indexPath: IndexPath) {
-        toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
-    }
-    
     private func selectCellsBetween(from startIndexPath: IndexPath, to endIndexPath: IndexPath) {
         guard let collection = focusedCollection else { return }
         
@@ -744,66 +742,35 @@ extension TLPhotosPickerViewController {
         for row in toProcess {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
             
-            // Check if this index path is valid
             let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
             guard row < itemCount else { continue }
-            
-            // Skip camera cell
-            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-            if isCameraRow { continue }
-            
-            // Reverse the operation for cells outside current range
+            if isCameraIndexPath(indexPath, in: collection) { continue }
+
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
                let phAsset = asset.phAsset {
                 let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
-                
-                if isDeselectMode {
-                    // In deselect mode, re-select cells outside range
-                    if !isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
-                } else {
-                    // In select mode, deselect cells outside range
-                    if isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
+                if isDeselectMode ? !isSelected : isSelected {
+                    toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
                 }
             }
         }
-        
-        // Process cells in current range
+
         for row in currentRange {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
-            
-            if processedIndexPaths.contains(row) {
-                continue
-            }
-            
-            // Check if this index path is valid
+
+            if processedIndexPaths.contains(row) { continue }
+
             let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
             guard row < itemCount else { continue }
-            
-            // Skip camera cell
-            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-            if isCameraRow { continue }
-            
-            // Apply operation based on mode
+            if isCameraIndexPath(indexPath, in: collection) { continue }
+
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
                let phAsset = asset.phAsset {
                 let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
-                
-                if isDeselectMode {
-                    // Deselect if currently selected
-                    if isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
-                } else {
-                    // Select if currently not selected
-                    if !isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
+                if isDeselectMode ? isSelected : !isSelected {
+                    toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
                 }
             }
         }
