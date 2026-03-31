@@ -713,6 +713,8 @@ extension TLPhotosPickerViewController {
     private func selectCellsBetween(from startIndexPath: IndexPath, to endIndexPath: IndexPath) {
         guard let collection = focusedCollection else { return }
 
+        let selectedIdentifiers = Set(selectedAssets.compactMap { $0.phAsset?.localIdentifier })
+
         let minRow = min(startIndexPath.row, endIndexPath.row)
         let maxRow = max(startIndexPath.row, endIndexPath.row)
         let currentRange = Set(minRow...maxRow)
@@ -725,8 +727,8 @@ extension TLPhotosPickerViewController {
 
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
-               let phAsset = asset.phAsset {
-                let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
+               let localID = asset.phAsset?.localIdentifier {
+                let isSelected = selectedIdentifiers.contains(localID)
                 if isDeselectMode ? !isSelected : isSelected {
                     toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
                 }
@@ -744,14 +746,14 @@ extension TLPhotosPickerViewController {
 
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
-               let phAsset = asset.phAsset {
-                let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
+               let localID = asset.phAsset?.localIdentifier {
+                let isSelected = selectedIdentifiers.contains(localID)
                 if isDeselectMode ? isSelected : !isSelected {
                     toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
                 }
             }
         }
-        
+
         processedIndexPaths = currentRange
     }
 }
