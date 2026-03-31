@@ -1621,11 +1621,10 @@ extension TLPhotosPickerViewController: UIGestureRecognizerDelegate {
             let absVelocityX = abs(velocity.x)
             let absVelocityY = abs(velocity.y)
             
-            // Allow if horizontal movement or velocity is greater than vertical
             let isHorizontalTranslation = absTranslationX > absTranslationY
             let isHorizontalVelocity = absVelocityX > absVelocityY
-            
-            return isHorizontalTranslation || isHorizontalVelocity
+
+            return isHorizontalTranslation && isHorizontalVelocity
         }
         return true
     }
