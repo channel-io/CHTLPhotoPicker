@@ -639,6 +639,15 @@ extension TLPhotosPickerViewController {
     }
     
     // MARK: - Multi-Selection Gesture
+    private func resetMultiSelectState() {
+        isMultiSelecting = false
+        lastSelectedIndexPath = nil
+        firstSelectedIndexPath = nil
+        processedIndexPaths.removeAll()
+        isDeselectMode = false
+        collectionView.isScrollEnabled = true
+    }
+
     private func setupMultiSelectionGesture() {
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
         panGesture.delegate = self
@@ -653,12 +662,8 @@ extension TLPhotosPickerViewController {
         
         switch gesture.state {
         case .began:
-            isMultiSelecting = false
-            lastSelectedIndexPath = nil
-            firstSelectedIndexPath = nil
-            processedIndexPaths.removeAll()
-            isDeselectMode = false
-            
+            resetMultiSelectState()
+
         case .changed:
             // Check if minimum distance threshold has been met
             if !isMultiSelecting {
@@ -715,14 +720,8 @@ extension TLPhotosPickerViewController {
             }
             
         case .ended, .cancelled:
-            isMultiSelecting = false
-            lastSelectedIndexPath = nil
-            firstSelectedIndexPath = nil
-            processedIndexPaths.removeAll()
-            isDeselectMode = false
-            // Re-enable scrolling when multi-selection ends
-            collectionView.isScrollEnabled = true
-            
+            resetMultiSelectState()
+
         default:
             break
         }
@@ -1094,13 +1093,7 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
     public func photoLibraryDidChange(_ changeInstance: PHChange) {
         let addIndex = self.focusedCollection?.useCameraButton == true ? 1 : 0
         DispatchQueue.main.async {
-            self.isMultiSelecting = false
-            self.lastSelectedIndexPath = nil
-            self.firstSelectedIndexPath = nil
-            self.processedIndexPaths.removeAll()
-            self.isDeselectMode = false
-            // Re-enable scrolling if it was disabled during multi-selection
-            self.collectionView.isScrollEnabled = true
+            self.resetMultiSelectState()
             guard let changes = self.getChanges(changeInstance) else {
                 return
             }
