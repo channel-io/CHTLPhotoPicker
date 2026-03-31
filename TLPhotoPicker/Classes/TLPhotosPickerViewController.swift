@@ -777,8 +777,7 @@ extension TLPhotosPickerViewController {
         for row in currentRange {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
             
-            // Skip if already processed and in current range
-            if processedIndexPaths.contains(row) && currentRange.contains(row) {
+            if processedIndexPaths.contains(row) {
                 continue
             }
             
