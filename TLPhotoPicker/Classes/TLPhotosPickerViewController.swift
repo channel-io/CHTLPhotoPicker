@@ -224,13 +224,12 @@ open class TLPhotosPickerViewController: UIViewController {
     private var placeholderThumbnail: UIImage? = nil
     private var cameraImage: UIImage? = nil
     
-    // Multi-selection gesture
     private var panGestureRecognizer: UIPanGestureRecognizer?
     private var isMultiSelecting = false
     private var lastSelectedIndexPath: IndexPath?
     private var firstSelectedIndexPath: IndexPath?
     private var processedIndexPaths = Set<Int>()
-    private var isDeselectMode = false // Track if we're in deselect mode
+    private var isDeselectMode = false
     private let minimumPanDistance: CGFloat = 10.0
     
     deinit {
@@ -639,6 +638,19 @@ extension TLPhotosPickerViewController {
     }
     
     // MARK: - Multi-Selection Gesture
+    private func isCameraIndexPath(_ indexPath: IndexPath, in collection: TLAssetsCollection) -> Bool {
+        return collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
+    }
+
+    private func resetMultiSelectState() {
+        isMultiSelecting = false
+        lastSelectedIndexPath = nil
+        firstSelectedIndexPath = nil
+        processedIndexPaths.removeAll()
+        isDeselectMode = false
+        collectionView.isScrollEnabled = true
+    }
+
     private func setupMultiSelectionGesture() {
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
         panGesture.delegate = self
@@ -653,164 +665,95 @@ extension TLPhotosPickerViewController {
         
         switch gesture.state {
         case .began:
-            isMultiSelecting = false
-            lastSelectedIndexPath = nil
-            firstSelectedIndexPath = nil
-            processedIndexPaths.removeAll()
-            isDeselectMode = false
-            
+            resetMultiSelectState()
+
         case .changed:
-            // Check if minimum distance threshold has been met
             if !isMultiSelecting {
                 let translation = gesture.translation(in: self.collectionView)
                 let distance = sqrt(translation.x * translation.x + translation.y * translation.y)
-                
-                // Require minimum distance before activating multi-select
-                if distance < minimumPanDistance {
-                    return
-                }
-                
-                // Only activate multi-select for horizontal panning (not vertical scrolling)
+                if distance < minimumPanDistance { return }
+
                 let absX = abs(translation.x)
                 let absY = abs(translation.y)
-                if absX <= absY {
-                    // Vertical or diagonal movement - don't activate multi-select
-                    return
-                }
-                
-                // Activate multi-select mode
+                if absX <= absY { return }
+
                 isMultiSelecting = true
-                // Disable scrolling during multi-selection
                 collectionView.isScrollEnabled = false
             }
-            
+
             guard let indexPath = self.collectionView.indexPathForItem(at: location),
                   let collection = self.focusedCollection,
                   let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else {
                 return
             }
-            
-            // Skip camera cell
-            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-            if isCameraRow {
-                return
-            }
-            
-            // Store first selected index if not set
+
+            if isCameraIndexPath(indexPath, in: collection) { return }
+
             if firstSelectedIndexPath == nil {
                 firstSelectedIndexPath = indexPath
-                
-                // Determine mode based on first cell's selection state
                 if let asset = collection.getTLAsset(at: indexPath),
                    let phAsset = asset.phAsset {
                     isDeselectMode = selectedAssets.contains(where: { $0.phAsset == phAsset })
                 }
             }
-            
-            // Only process if we moved to a different cell
+
             if lastSelectedIndexPath != indexPath {
-                // Select all cells in rectangular region between first and current
                 selectCellsBetween(from: firstSelectedIndexPath!, to: indexPath)
                 lastSelectedIndexPath = indexPath
             }
             
         case .ended, .cancelled:
-            isMultiSelecting = false
-            lastSelectedIndexPath = nil
-            firstSelectedIndexPath = nil
-            processedIndexPaths.removeAll()
-            isDeselectMode = false
-            // Re-enable scrolling when multi-selection ends
-            collectionView.isScrollEnabled = true
-            
+            resetMultiSelectState()
+
         default:
             break
         }
     }
     
-    private func toggleSelectionForMultiSelect(for cell: TLPhotoCollectionViewCell, at indexPath: IndexPath) {
-        toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
-    }
-    
     private func selectCellsBetween(from startIndexPath: IndexPath, to endIndexPath: IndexPath) {
         guard let collection = focusedCollection else { return }
-        
-        // Calculate current range
+
+        let selectedIdentifiers = Set(selectedAssets.compactMap { $0.phAsset?.localIdentifier })
+
         let minRow = min(startIndexPath.row, endIndexPath.row)
         let maxRow = max(startIndexPath.row, endIndexPath.row)
         let currentRange = Set(minRow...maxRow)
-        
-        // Process cells that were in previous range but not in current range
         let toProcess = processedIndexPaths.subtracting(currentRange)
         for row in toProcess {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
-            
-            // Check if this index path is valid
             let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
             guard row < itemCount else { continue }
-            
-            // Skip camera cell
-            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-            if isCameraRow { continue }
-            
-            // Reverse the operation for cells outside current range
+            if isCameraIndexPath(indexPath, in: collection) { continue }
+
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
-               let phAsset = asset.phAsset {
-                let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
-                
-                if isDeselectMode {
-                    // In deselect mode, re-select cells outside range
-                    if !isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
-                } else {
-                    // In select mode, deselect cells outside range
-                    if isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
+               let localID = asset.phAsset?.localIdentifier {
+                let isSelected = selectedIdentifiers.contains(localID)
+                if isDeselectMode ? !isSelected : isSelected {
+                    toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
                 }
             }
         }
-        
-        // Process cells in current range
+
         for row in currentRange {
             let indexPath = IndexPath(row: row, section: endIndexPath.section)
-            
-            // Skip if already processed and in current range
-            if processedIndexPaths.contains(row) && currentRange.contains(row) {
-                continue
-            }
-            
-            // Check if this index path is valid
+
+            if processedIndexPaths.contains(row) { continue }
+
             let itemCount = collection.sections?[safe: indexPath.section]?.assets.count ?? collection.count
             guard row < itemCount else { continue }
-            
-            // Skip camera cell
-            let isCameraRow = collection.useCameraButton && indexPath.section == 0 && indexPath.row == 0
-            if isCameraRow { continue }
-            
-            // Apply operation based on mode
+            if isCameraIndexPath(indexPath, in: collection) { continue }
+
             if let cell = collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell,
                let asset = collection.getTLAsset(at: indexPath),
-               let phAsset = asset.phAsset {
-                let isSelected = selectedAssets.contains(where: { $0.phAsset == phAsset })
-                
-                if isDeselectMode {
-                    // Deselect if currently selected
-                    if isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
-                } else {
-                    // Select if currently not selected
-                    if !isSelected {
-                        toggleSelectionForMultiSelect(for: cell, at: indexPath)
-                    }
+               let localID = asset.phAsset?.localIdentifier {
+                let isSelected = selectedIdentifiers.contains(localID)
+                if isDeselectMode ? isSelected : !isSelected {
+                    toggleSelection(for: cell, at: indexPath, isMultiSelectMode: true)
                 }
             }
         }
-        
-        // Update processed index paths to current range
+
         processedIndexPaths = currentRange
     }
 }
@@ -1095,13 +1038,7 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
     public func photoLibraryDidChange(_ changeInstance: PHChange) {
         let addIndex = self.focusedCollection?.useCameraButton == true ? 1 : 0
         DispatchQueue.main.async {
-            self.isMultiSelecting = false
-            self.lastSelectedIndexPath = nil
-            self.firstSelectedIndexPath = nil
-            self.processedIndexPaths.removeAll()
-            self.isDeselectMode = false
-            // Re-enable scrolling if it was disabled during multi-selection
-            self.collectionView.isScrollEnabled = true
+            self.resetMultiSelectState()
             guard let changes = self.getChanges(changeInstance) else {
                 return
             }
@@ -1136,34 +1073,29 @@ extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
                     self.focusedCollection?.fetchResult = changes.fetchResultAfterChanges
                     self.reloadCollectionView()
                 }else {
-                    // Capture changedIndexes before any updates (Apple recommendation)
+                    // Capture changedIndexes before any updates (Apple recommendation).
+                    // Exclude indexes that are also being removed to prevent batch update conflict.
+                    let removedIndexes = changes.removedIndexes ?? IndexSet()
                     let changedIndexPaths: [IndexPath]? = {
-                        if let changed = changes.changedIndexes, changed.count > 0 {
-                            return changed.map { IndexPath(item: $0+addIndex, section:0) }
-                        }
-                        return nil
+                        guard let changed = changes.changedIndexes, changed.count > 0 else { return nil }
+                        let filtered = changed.filter { !removedIndexes.contains($0) }
+                        guard !filtered.isEmpty else { return nil }
+                        return filtered.map { IndexPath(item: $0+addIndex, section: 0) }
                     }()
                     
                     self.collectionView.performBatchUpdates({ [weak self] in
                         guard let `self` = self else { return }
                         self.focusedCollection?.fetchResult = changes.fetchResultAfterChanges
                         
-                        // 1. Delete
                         if let removed = changes.removedIndexes, removed.count > 0 {
-                            self.collectionView.deleteItems(at: removed.map { IndexPath(item: $0+addIndex, section:0) })
+                            self.collectionView.deleteItems(at: removed.map { IndexPath(item: $0+addIndex, section: 0) })
                         }
-                        
-                        // 2. Insert
                         if let inserted = changes.insertedIndexes, inserted.count > 0 {
-                            self.collectionView.insertItems(at: inserted.map { IndexPath(item: $0+addIndex, section:0) })
+                            self.collectionView.insertItems(at: inserted.map { IndexPath(item: $0+addIndex, section: 0) })
                         }
-                        
-                        // 3. Reload (using captured index paths)
                         if let changedIndexPaths = changedIndexPaths {
                             self.collectionView.reloadItems(at: changedIndexPaths)
                         }
-                        
-                        // 4. Move (must be last, as recommended by Apple)
                         changes.enumerateMoves { fromIndex, toIndex in
                             self.collectionView.moveItem(at: IndexPath(item: fromIndex + addIndex, section: 0),
                                                          to: IndexPath(item: toIndex + addIndex, section: 0))
@@ -1615,23 +1547,14 @@ extension TLPhotosPickerViewController: UIGestureRecognizerDelegate {
             let translation = pan.translation(in: collectionView)
             let velocity = pan.velocity(in: collectionView)
             
-            // Check both translation and velocity to determine direction early
-            let absTranslationX = abs(translation.x)
-            let absTranslationY = abs(translation.y)
-            let absVelocityX = abs(velocity.x)
-            let absVelocityY = abs(velocity.y)
-            
-            // Allow if horizontal movement or velocity is greater than vertical
-            let isHorizontalTranslation = absTranslationX > absTranslationY
-            let isHorizontalVelocity = absVelocityX > absVelocityY
-            
-            return isHorizontalTranslation || isHorizontalVelocity
+            let isHorizontalTranslation = abs(translation.x) > abs(translation.y)
+            let isHorizontalVelocity = abs(velocity.x) > abs(velocity.y)
+            return isHorizontalTranslation && isHorizontalVelocity
         }
         return true
     }
     
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Allow simultaneous recognition with collection view's pan gesture
         if gestureRecognizer == panGestureRecognizer {
             return otherGestureRecognizer == collectionView.panGestureRecognizer
         }
